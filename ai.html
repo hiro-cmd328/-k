@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI食事バランスチェッカー | 農水省基準準拠</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&display=swap');
+    body {
+      font-family: 'Noto Sans JP', sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+
+  <!-- Header -->
+  <header class="bg-emerald-600 text-white shadow-md sticky top-0 z-30">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center gap-2">
+        <i data-lucide="utensils" class="w-6 h-6"></i>
+        <h1 class="text-xl font-bold tracking-tight">スマート食事コンパス</h1>
+      </div>
+      <span class="text-xs bg-emerald-700 px-2.5 py-1 rounded-full font-medium border border-emerald-500">農水省・厚労省基準準拠</span>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto p-4 pb-24">
+    <!-- 1. ユーザー設定セクション -->
+    <section class="bg-white rounded-2xl p-6 shadow-sm mb-6 border border-slate-100">
+      <div class="flex items-center gap-2 mb-4 border-b border-slate-100 pb-3">
+        <i data-lucide="user" class="text-emerald-600 w-5 h-5"></i>
+        <h2 class="text-lg font-bold">プロフィールと目標カロリー設定</h2>
+      </div>
+
+      <form id="profile-form" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- 基本属性 -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">年齢</label>
+          <input type="number" id="age" value="30" min="1" max="120" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">性別</label>
+          <select id="gender" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <option value="male">男性</option>
+            <option value="female" selected>女性</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">身体活動レベル (日常の運動量)</label>
+          <select id="activity-level" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <option value="1">低い (静的な活動が中心)</option>
+            <option value="2" selected>普通 (通勤・買い物・家事・軽い運動)</option>
+            <option value="3">高い (立ち仕事・活発な運動習慣)</option>
+          </select>
+        </div>
+
+        <!-- 体重管理目標 -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">現在の体重 (kg)</label>
+          <input type="number" id="current-weight" value="60" step="0.1" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">目指す目標体重 (kg)</label>
+          <input type="number" id="target-weight" value="55" step="0.1" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">目標達成ペース</label>
+          <select id="weight-pace" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <option value="keep">現在の体重を維持する</option>
+            <option value="slow-lose">ゆっくり減量 (月-1kg程度)</option>
+            <option value="normal-lose" selected>標準的な減量 (月-2kg程度)</option>
+            <option value="slow-gain">ゆっくり増量 (月+1kg程度)</option>
+          </select>
+        </div>
+      </form>
+
+      <!-- 計算結果まとめ -->
+      <div class="mt-6 bg-emerald-50 border border-emerald-100 rounded-xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <div class="text-xs text-slate-500 font-medium">厚生労働省・日本人の食事摂取基準に基づく</div>
+          <div class="text-sm font-semibold text-slate-700">あなたの推定エネルギー必要量: <span id="base-calories-display" class="font-bold text-slate-900">1950</span> kcal/日</div>
+          <div class="text-xs text-emerald-600 mt-1 font-medium" id="goal-description-display">目標体重に向け、毎日 -240 kcal の調整を行います。</div>
+        </div>
+        <div class="text-left md:text-right bg-white px-4 py-2 rounded-lg shadow-sm border border-emerald-200/50 w-full md:w-auto">
+          <span class="text-xs text-slate-500 block font-medium">本日の目標摂取エネルギー</span>
+          <span id="target-calories-display" class="text-2xl font-black text-emerald-600">1710</span> <span class="text-xs font-bold text-slate-600">kcal/日</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. 食事カメラ撮影・アップロード -->
+    <section class="bg-white rounded-2xl p-6 shadow-sm mb-6 border border-slate-100">
+      <div class="flex items-center gap-2 mb-4 border-b border-slate-100 pb-3">
+        <i data-lucide="camera" class="text-emerald-600 w-5 h-5"></i>
+        <h2 class="text-lg font-bold">食事の写真を撮る・アップロード</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- アップロード・キャプチャエリア -->
+        <div class="flex flex-col gap-4">
+          <div class="border-2 border-dashed border-slate-200 rounded-xl p-4 flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100/50 transition cursor-pointer relative min-h-[220px]" id="upload-container">
+            <input type="file" id="image-input" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer">
+            <div id="upload-prompt" class="text-center">
+              <i data-lucide="image-plus" class="w-12 h-12 text-slate-400 mx-auto mb-3"></i>
+              <p class="text-sm font-semibold text-slate-700">食事の写真を選択、またはカメラで撮影</p>
+              <p class="text-xs text-slate-400 mt-1">対応形式: PNG, JPEG, WEBP</p>
+            </div>
+            <img id="image-preview" class="hidden max-h-[220px] rounded-lg object-contain" alt="プレビュー">
+          </div>
+
+          <!-- 代替テキスト入力 (写真がない場合) -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label class="block text-xs font-semibold text-slate-500">または、食べたメニューを直接入力する</label>
+            </div>
+            <input type="text" id="manual-food-input" placeholder="例: サバの塩焼き、白ご飯一膳、わかめ味噌汁" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          </div>
+
+          <button id="analyze-btn" class="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold py-3 px-4 rounded-xl shadow-md transition flex items-center justify-center gap-2">
+            <i data-lucide="wand-2" class="w-5 h-5"></i>
+            <span>AIで食事カロリーを分析する</span>
+          </button>
+        </div>
+
+        <!-- 農水省「食事バランスガイド」の本日達成度ミニビュー -->
+        <div class="bg-slate-50 rounded-xl p-4 border border-slate-200/60 flex flex-col justify-between">
+          <div>
+            <h3 class="text-sm font-bold text-slate-700 flex items-center gap-1.5 mb-3">
+              <i data-lucide="pie-chart" class="w-4 h-4 text-amber-500"></i>
+              今日の食事バランス（コマのバランス）
+            </h3>
+            <p class="text-xs text-slate-500 mb-4 leading-relaxed">
+              農林水産省「食事バランスガイド」に基づくSV（サービング）目標値に対する、本日の累計摂取バランスです。
+            </p>
+
+            <!-- 5つの区分 -->
+            <div class="space-y-3" id="sv-bars-container">
+              <!-- 各項目はJavaScriptで動的に更新、以下は初期プレースホルダー -->
+              <div>
+                <div class="flex justify-between text-xs font-medium text-slate-600 mb-1">
+                  <span>主食 (ごはん・パン・麺)</span>
+                  <span id="sv-display-shushoku">0 / 5 SV</span>
+                </div>
+                <div class="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
+                  <div id="sv-bar-shushoku" class="bg-amber-500 h-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+              </div>
+
+              <div>
+                <div class="flex justify-between text-xs font-medium text-slate-600 mb-1">
+                  <span>副菜 (野菜・きのこ・海藻)</span>
+                  <span id="sv-display-fukusai">0 / 5 SV</span>
+                </div>
+                <div class="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
+                  <div id="sv-bar-fukusai" class="bg-emerald-500 h-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+              </div>
+
+              <div>
+                <div class="flex justify-between text-xs font-medium text-slate-600 mb-1">
+                  <span>主菜 (肉・魚・卵・大豆)</span>
+                  <span id="sv-display-shusai">0 / 3 SV</span>
+                </div>
+                <div class="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
+                  <div id="sv-bar-shusai" class="bg-rose-500 h-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+              </div>
+
+              <div>
+                <div class="flex justify-between text-xs font-medium text-slate-600 mb-1">
+                  <span>牛乳・乳製品</span>
+                  <span id="sv-display-milk">0 / 2 SV</span>
+                </div>
+                <div class="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
+                  <div id="sv-bar-milk" class="bg-blue-500 h-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+              </div>
+
+              <div>
+                <div class="flex justify-between text-xs font-medium text-slate-600 mb-1">
+                  <span>果物</span>
+                  <span id="sv-display-fruit">0 / 2 SV</span>
+                </div>
+                <div class="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
+                  <div id="sv-bar-fruit" class="bg-yellow-500 h-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-slate-200 flex justify-between items-center">
+            <span class="text-xs text-slate-500">本日摂取合計: <span id="today-calories-total" class="font-bold text-slate-800">0</span> / <span id="today-calories-target-ref">1710</span> kcal</span>
+            <button id="reset-today-btn" class="text-xs text-rose-500 hover:text-rose-600 font-medium flex items-center gap-1">
+              <i data-lucide="rotate-ccw" class="w-3 h-3"></i> 記録リセット
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ローディング表示 -->
+    <div id="loading-spinner" class="hidden bg-white rounded-2xl p-8 shadow-sm mb-6 border border-slate-100 text-center">
+      <div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-emerald-500 border-t-transparent mb-3"></div>
+      <p class="text-sm font-semibold text-slate-700">AIが料理を識別して、農水省・厚労省の栄養データベースからカロリー・SVを算出しています...</p>
+      <p class="text-xs text-slate-400 mt-1">これには10秒ほどかかる場合があります。お待ちください。</p>
+    </div>
+
+    <!-- エラーメッセージ表示 -->
+    <div id="error-box" class="hidden bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl mb-6 text-sm flex items-start gap-2">
+      <i data-lucide="alert-circle" class="w-5 h-5 shrink-0 mt-0.5"></i>
+      <div>
+        <p class="font-bold">分析中にエラーが発生しました</p>
+        <p id="error-message-text" class="text-xs mt-1">もう一度お試しいただくか、別の写真をアップロードしてください。</p>
+      </div>
+    </div>
+
+    <!-- 3. 分析結果表示セクション -->
+    <section id="analysis-result-section" class="hidden bg-white rounded-2xl p-6 shadow-sm border border-slate-100 mb-6">
+      <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2">
+          <i data-lucide="sparkles" class="text-amber-500 w-5 h-5"></i>
+          <h2 class="text-lg font-bold">AI食事分析結果</h2>
+        </div>
+        <button id="add-to-today-btn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs py-1.5 px-3 rounded-lg shadow transition flex items-center gap-1">
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i> <span>本日の記録に追加</span>
+        </button>
+      </div>
+
+      <!-- メイン料理情報 -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div class="md:col-span-2">
+          <h3 id="food-title" class="text-2xl font-black text-slate-900 mb-1">サバの味噌煮定食</h3>
+          <p id="food-description" class="text-sm text-slate-500 mb-4">白ごはん、さばの味噌煮、ほうれん草のおひたし、お味噌汁のセットです。バランスが良く、タンパク質がしっかり摂れる健康的な組み合わせです。</p>
+
+          <!-- カロリーと三大栄養素 -->
+          <div class="grid grid-cols-4 gap-2 text-center">
+            <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
+              <span class="text-[10px] font-bold text-slate-500 block mb-0.5">カロリー</span>
+              <span id="result-calories" class="text-lg font-extrabold text-emerald-600">650</span><span class="text-[10px] text-slate-500 font-bold ml-0.5">kcal</span>
+            </div>
+            <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
+              <span class="text-[10px] font-bold text-slate-500 block mb-0.5">タンパク質</span>
+              <span id="result-protein" class="text-lg font-extrabold text-slate-800">24.5</span><span class="text-[10px] text-slate-500 font-bold ml-0.5">g</span>
+            </div>
+            <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
+              <span class="text-[10px] font-bold text-slate-500 block mb-0.5">脂質</span>
+              <span id="result-fat" class="text-lg font-extrabold text-slate-800">18.2</span><span class="text-[10px] text-slate-500 font-bold ml-0.5">g</span>
+            </div>
+            <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
+              <span class="text-[10px] font-bold text-slate-500 block mb-0.5">炭水化物</span>
+              <span id="result-carbs" class="text-lg font-extrabold text-slate-800">82.1</span><span class="text-[10px] text-slate-500 font-bold ml-0.5">g</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 食事バランスガイド（SV）詳細 -->
+        <div class="bg-amber-50/50 rounded-xl p-4 border border-amber-100">
+          <h4 class="text-xs font-bold text-amber-800 mb-3 flex items-center gap-1">
+            <i data-lucide="compass" class="w-3.5 h-3.5"></i>
+            この食事のSV換算値 (サービング)
+          </h4>
+          <ul class="space-y-2 text-xs text-slate-700" id="result-sv-list">
+            <li class="flex justify-between border-b border-amber-100/60 pb-1"><span>主食 (主にごはん・パン)</span><span class="font-bold text-amber-700" id="res-sv-shushoku">3.0 SV</span></li>
+            <li class="flex justify-between border-b border-amber-100/60 pb-1"><span>副菜 (主に野菜のおかず)</span><span class="font-bold text-emerald-700" id="res-sv-fukusai">1.5 SV</span></li>
+            <li class="flex justify-between border-b border-amber-100/60 pb-1"><span>主菜 (主に肉・魚・卵・大豆)</span><span class="font-bold text-rose-700" id="res-sv-shusai">2.0 SV</span></li>
+            <li class="flex justify-between border-b border-amber-100/60 pb-1"><span>牛乳・乳製品</span><span class="font-bold text-blue-700" id="res-sv-milk">0.0 SV</span></li>
+            <li class="flex justify-between pb-1"><span>果物</span><span class="font-bold text-yellow-700" id="res-sv-fruit">0.0 SV</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 内訳詳細テーブル -->
+      <div class="mb-4">
+        <h4 class="text-xs font-bold text-slate-600 mb-2 uppercase tracking-wider">構成メニュー詳細</h4>
+        <div class="overflow-x-auto border border-slate-100 rounded-lg">
+          <table class="w-full text-xs text-left text-slate-600">
+            <thead class="bg-slate-50 text-slate-500 uppercase">
+              <tr>
+                <th class="px-3 py-2">食材・メニュー名</th>
+                <th class="px-3 py-2 text-right">推定重量</th>
+                <th class="px-3 py-2 text-right">カロリー</th>
+                <th class="px-3 py-2">主な栄養特徴</th>
+              </tr>
+            </thead>
+            <tbody id="result-breakdown-rows">
+              <!-- JSで動的に追加 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- AIからの管理アドバイス -->
+      <div class="bg-emerald-50 rounded-xl p-4 border border-emerald-100 flex gap-3">
+        <i data-lucide="message-square" class="text-emerald-600 w-5 h-5 shrink-0 mt-0.5"></i>
+        <div>
+          <h4 class="text-xs font-bold text-emerald-800">食事アドバイスと次の食事のヒント</h4>
+          <p id="food-advice" class="text-xs text-slate-600 mt-1 leading-relaxed">
+            今回の食事は非常にバランスが良いです。副菜が少し足りないので、次の食事ではサラダやほうれん草などのお野菜、あるいはビタミン補給に果物（りんごやみかんなど）を1SVほどプラスすると、1日の目標バランスに完璧に近づきます！
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- お役立ち基準ガイド -->
+    <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+      <h3 class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-1.5">
+        <i data-lucide="info" class="w-4 h-4 text-emerald-600"></i>
+        日本の食事バランスガイドとは？
+      </h3>
+      <div class="text-xs text-slate-500 space-y-3 leading-relaxed">
+        <p>
+          厚生労働省と農林水産省が共同で策定した「食事バランスガイド」は、1日に「何を」「どれだけ」食べたらよいかの目安を分かりやすくコマのイラストで示したものです。
+        </p>
+        <p>
+          食事の量を「つ（SV：サービング）」という単位で数えます。
+        </p>
+        <ul class="list-disc list-inside space-y-1 pl-1">
+          <li><strong>主食 (ごはん、パン、麺):</strong> ごはん中盛り1杯＝2SV、食パン1枚＝1SV</li>
+          <li><strong>副菜 (野菜、きのこ、海藻、芋):</strong> 野菜サラダ＝1SV、具だくさん味噌汁＝1SV</li>
+          <li><strong>主菜 (肉、魚、卵、大豆製品):</strong> 目玉焼き＝1SV、焼き魚＝2SV、ハンバーグ＝3SV</li>
+          <li><strong>牛乳・乳製品:</strong> 牛乳コップ1杯＝2SV、ヨーグルト1個＝1SV</li>
+          <li><strong>果物:</strong> みかん1個＝1SV、りんご半分＝1SV</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <!-- JS ロジック -->
+  <script>
+    // --- 1. グローバル設定・変数 ---
+    const apiKey = ""; // Canvas環境で自動注入されるため空文字のまま
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'calorie-balance-tracker';
+
+    // ユーザー情報と目標設定
+    let userProfile = {
+      age: 30,
+      gender: 'female',
+      activityLevel: 2,
+      currentWeight: 60,
+      targetWeight: 55,
+      weightPace: 'normal-lose'
+    };
+
+    // 1日の累計摂取状態
+    let todayNutrition = {
+      calories: 0,
+      protein: 0,
+      fat: 0,
+      carbs: 0,
+      sv: {
+        shushoku: 0,
+        fukusai: 0,
+        shusai: 0,
+        milk: 0,
+        fruit: 0
+      }
+    };
+
+    // 1日の目標バランス基準 (プロファイルから自動計算)
+    let dailyTarget = {
+      calories: 1710,
+      sv: {
+        shushoku: 5, // SV基準
+        fukusai: 5,
+        shusai: 3,
+        milk: 2,
+        fruit: 2
+      }
+    };
+
+    // 一時的に保持する直近の分析結果
+    let latestAnalysis = null;
+
+    // --- 2. 厚労省・農水省基準の計算ロジック ---
+    // 日本人の食事摂取基準(2025年版)に基づく簡易基礎代謝と推定エネルギー必要量の推定
+    function calculateDailyCalories() {
+      const age = parseInt(document.getElementById('age').value) || 30;
+      const gender = document.getElementById('gender').value;
+      const activityLevel = parseInt(document.getElementById('activity-level').value) || 2;
+      const currentWeight = parseFloat(document.getElementById('current-weight').value) || 60;
+      const targetWeight = parseFloat(document.getElementById('target-weight').value) || 55;
+      const weightPace = document.getElementById('weight-pace').value;
+
+      // 1. 性別・年齢階層別の基準代謝基準値 (kcal/kg体重/日)
+      let metabolicRatePerKg = 22.0; // デフォルト (30-49才女性基準)
+
+      if (gender === 'male') {
+        if (age < 18) metabolicRatePerKg = 24.0;
+        else if (age < 30) metabolicRatePerKg = 24.0;
+        else if (age < 50) metabolicRatePerKg = 22.5;
+        else if (age < 65) metabolicRatePerKg = 21.5;
+        else metabolicRatePerKg = 20.7;
+      } else { // female
+        if (age < 18) metabolicRatePerKg = 23.0;
+        else if (age < 30) metabolicRatePerKg = 22.1;
+        else if (age < 50) metabolicRatePerKg = 21.7;
+        else if (age < 65) metabolicRatePerKg = 20.7;
+        else metabolicRatePerKg = 20.0;
+      }
+
+      // 基礎代謝量 = 基準値 × 現在の体重 (理想的には除脂肪体重だが、基準計算に準拠)
+      const basalMetabolism = metabolicRatePerKg * currentWeight;
+
+      // 2. 身体活動レベルに応じたエネルギー係数 (1: 1.5,  2: 1.75,  3: 2.0)
+      let activityFactor = 1.75;
+      if (activityLevel === 1) activityFactor = 1.50;
+      else if (activityLevel === 3) activityFactor = 2.00;
+
+      // 推定エネルギー必要量（基準カロリー）
+      const baseCalories = Math.round(basalMetabolism * activityFactor);
+
+      // 3. 目標体重に合わせたエネルギー調整
+      // 1kgの脂肪燃焼に必要なカロリーを約7200kcalとする。
+      // 月-2kgペースの場合、1ヶ月で14400kcalのマイナス ＝ 1日あたり約 -480 kcal。
+      // 月-1kgペースの場合、1日あたり約 -240 kcal。
+      let calorieAdjustment = 0;
+      let paceText = "現在の体重を維持する基準です。";
+
+      if (weightPace === 'slow-lose') {
+        calorieAdjustment = -240;
+        paceText = "ゆっくり減量（月約-1kg）のため、毎日 -240 kcal を差し引きます。";
+      } else if (weightPace === 'normal-lose') {
+        calorieAdjustment = -480;
+        paceText = "標準的な減量（月約-2kg）のため、毎日 -480 kcal を差し引きます。";
+      } else if (weightPace === 'slow-gain') {
+        calorieAdjustment = 240;
+        paceText = "ゆっくり増量（月約+1kg）のため、毎日 +240 kcal を加算します。";
+      }
+
+      // 調整後の目標カロリー (極端な健康被害を防ぐため最低1200kcalを担保)
+      let targetCalories = Math.max(1200, baseCalories + calorieAdjustment);
+
+      // 食事バランスガイドの目標SV数の自動配分（農水省の基準テーブルに準拠）
+      // カロリーランクによって各SVのターゲット数が変動する
+      let targetSv = { shushoku: 5, fukusai: 5, shusai: 3, milk: 2, fruit: 2 }; // 1400-2000kcal基準
+      if (targetCalories < 1600) {
+        // 1200~1600kcal: 主食4-5, 副菜5, 主菜3, 牛乳2, 果物2
+        targetSv = { shushoku: 4, fukusai: 5, shusai: 3, milk: 2, fruit: 2 };
+      } else if (targetCalories >= 2200) {
+        // 2200kcal以上: 主食7-8, 副菜6, 主菜4, 牛乳2, 果物2
+        targetSv = { shushoku: 7, fukusai: 6, shusai: 4, milk: 2, fruit: 2 };
+      }
+
+      // UIに数値を適用
+      document.getElementById('base-calories-display').innerText = baseCalories;
+      document.getElementById('goal-description-display').innerText = paceText;
+      document.getElementById('target-calories-display').innerText = targetCalories;
+      document.getElementById('today-calories-target-ref').innerText = targetCalories;
+
+      // オブジェクトの更新
+      userProfile = { age, gender, activityLevel, currentWeight, targetWeight, weightPace };
+      dailyTarget = { calories: targetCalories, sv: targetSv };
+
+      // グラフや累計の表示を更新
+      updateSvBars();
+    }
+
+    // --- 3. UIの表示更新処理 ---
+    function updateSvBars() {
+      const items = [
+        { id: 'shushoku', name: '主食' },
+        { id: 'fukusai', name: '副菜' },
+        { id: 'shusai', name: '主菜' },
+        { id: 'milk', name: '牛乳・乳製品' },
+        { id: 'fruit', name: '果物' }
+      ];
+
+      items.forEach(item => {
+        const current = todayNutrition.sv[item.id] || 0;
+        const target = dailyTarget.sv[item.id] || 5;
+        const percent = Math.min(100, (current / target) * 100);
+
+        document.getElementById(`sv-display-${item.id}`).innerText = `${current.toFixed(1)} / ${target} SV`;
+        document.getElementById(`sv-bar-${item.id}`).style.width = `${percent}%`;
+      });
+
+      document.getElementById('today-calories-total').innerText = Math.round(todayNutrition.calories);
+    }
+
+    // 今日の記録を初期化
+    function resetToday() {
+      todayNutrition = {
+        calories: 0,
+        protein: 0,
+        fat: 0,
+        carbs: 0,
+        sv: { shushoku: 0, fukusai: 0, shusai: 0, milk: 0, fruit: 0 }
+      };
+      saveToLocalStorage();
+      updateSvBars();
+    }
+
+    // --- ローカルストレージでの簡易データ永続化 ---
+    function saveToLocalStorage() {
+      localStorage.setItem('today_nutrition', JSON.stringify(todayNutrition));
+      localStorage.setItem('user_profile', JSON.stringify(userProfile));
+    }
+
+    function loadFromLocalStorage() {
+      const savedProfile = localStorage.getItem('user_profile');
+      if (savedProfile) {
+        const p = JSON.parse(savedProfile);
+        document.getElementById('age').value = p.age || 30;
+        document.getElementById('gender').value = p.gender || 'female';
+        document.getElementById('activity-level').value = p.activityLevel || 2;
+        document.getElementById('current-weight').value = p.currentWeight || 60;
+        document.getElementById('target-weight').value = p.targetWeight || 55;
+        document.getElementById('weight-pace').value = p.weightPace || 'normal-lose';
+      }
+
+      const savedNutrition = localStorage.getItem('today_nutrition');
+      if (savedNutrition) {
+        todayNutrition = JSON.parse(savedNutrition);
+      }
+
+      calculateDailyCalories();
+    }
+
+    // --- 4. 画像と手動入力のAI解析機能 ---
+    // エラーハンドリング付き指数バックオフ
+    async function fetchWithRetry(url, options, retries = 5, delay = 1000) {
+      for (let i = 0; i < retries; i++) {
+        try {
+          const response = await fetch(url, options);
+          if (response.ok) return await response.json();
+        } catch (e) {
+          if (i === retries - 1) throw e;
+        }
+        await new Promise(res => setTimeout(res, delay));
+        delay *= 2;
+      }
+      throw new Error("APIへの接続がタイムアウトしました。");
+    }
+
+    async function analyzeFood() {
+      const imageInput = document.getElementById('image-input');
+      const manualInput = document.getElementById('manual-food-input').value.trim();
+      const errorBox = document.getElementById('error-box');
+      const errorText = document.getElementById('error-message-text');
+      const loadingSpinner = document.getElementById('loading-spinner');
+      const resultSection = document.getElementById('analysis-result-section');
+
+      errorBox.classList.add('hidden');
+      resultSection.classList.add('hidden');
+
+      let file = imageInput.files[0];
+      let hasImage = !!file;
+
+      if (!hasImage && !manualInput) {
+        errorBox.classList.remove('hidden');
+        errorText.innerText = "写真をアップロードするか、または食べたメニューを文字で入力してください。";
+        return;
+      }
+
+      loadingSpinner.classList.remove('hidden');
+
+      try {
+        let systemPrompt = `
+          あなたは優秀な管理栄養士であり、食事画像解析のスペシャリストです。
+          農林水産省・厚生労働省が定める「食事バランスガイド」および「日本人の食事摂取基準」に完全に基づき、提供された食事情報からカロリー、PFC（タンパク質、脂質、炭水化物）、および「つ（SV：サービング）」換算値を解析してください。
+
+          次のJSONフォーマットのみで必ず応答を返してください。それ以外の挨拶文などは一切含めないでください。
+
+          {
+            "foodTitle": "料理の代表名（例: さばの味噌煮定食）",
+            "description": "全体的な食事内容の説明（簡潔に2〜3文）",
+            "totalCalories": 全体の合計カロリー(数値),
+            "protein": 合計タンパク質g数(数値),
+            "fat": 合計脂質g数(数値),
+            "carbs": 合計炭水化物g数(数値),
+            "sv": {
+              "shushoku": 主食のSV値（数値。例: ごはん大盛りなら3.0, 普通1杯なら2.0）",
+              "fukusai": 副菜のSV値（数値。例: 野菜・海藻のおかず1品につき1.0〜2.0）",
+              "shusai": 主菜のSV値（数値。例: 肉・魚メイン料理1品につき2.0〜3.0）",
+              "milk": 牛乳・乳製品のSV値（数値）",
+              "fruit": 果物のSV値（数値）"
+            },
+            "breakdown": [
+              {
+                "name": "個別の料理・食材名（例: 白ごはん 200g）",
+                "weight": "重量や分量（例: 200g、1尾、1パックなど）",
+                "calories": カロリー(数値),
+                "feature": "栄養的な特徴（例: 炭水化物の補給源）"
+              }
+            ],
+            "advice": "ユーザーへの食事管理アドバイス。今回の食事を踏まえ、次の食事で何をどのくらい（SV値）補えば全体のバランスがよくなるか、具体的にアドバイスしてください。"
+          }
+        `;
+
+        let userPrompt = "この食事を分析してください。";
+        if (manualInput) {
+          userPrompt += ` 分析対象の食事メニュー: "${manualInput}"`;
+        }
+
+        let payload = {};
+        let endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+        if (hasImage) {
+          // 画像をBase64に変換して送信
+          const base64Data = await getBase64(file);
+          const rawBase64 = base64Data.split(',')[1];
+          const mimeType = file.type;
+
+          payload = {
+            contents: [{
+              role: "user",
+              parts: [
+                { text: userPrompt },
+                { inlineData: { mimeType: mimeType, data: rawBase64 } }
+              ]
+            }],
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            generationConfig: {
+              responseMimeType: "application/json"
+            }
+          };
+        } else {
+          // テキストのみでの送信
+          payload = {
+            contents: [{
+              parts: [{ text: userPrompt }]
+            }],
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            generationConfig: {
+              responseMimeType: "application/json"
+            }
+          };
+        }
+
+        const result = await fetchWithRetry(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const contentText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!contentText) {
+          throw new Error("AIからの応答を正常に受信できませんでした。");
+        }
+
+        const data = JSON.parse(contentText);
+        latestAnalysis = data;
+        displayAnalysisResult(data);
+
+      } catch (err) {
+        console.error(err);
+        errorBox.classList.remove('hidden');
+        errorText.innerText = err.message || "解析中にエラーが発生しました。別の画像を試すか、入力テキストをシンプルにしてください。";
+      } finally {
+        loadingSpinner.classList.add('hidden');
+      }
+    }
+
+    // Base64ヘルパー
+    function getBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+      });
+    }
+
+    // 解析結果を画面へ反映
+    function displayAnalysisResult(data) {
+      const resultSection = document.getElementById('analysis-result-section');
+      resultSection.classList.remove('hidden');
+
+      document.getElementById('food-title').innerText = data.foodTitle;
+      document.getElementById('food-description').innerText = data.description;
+      document.getElementById('result-calories').innerText = Math.round(data.totalCalories);
+      document.getElementById('result-protein').innerText = data.protein.toFixed(1);
+      document.getElementById('result-fat').innerText = data.fat.toFixed(1);
+      document.getElementById('result-carbs').innerText = data.carbs.toFixed(1);
+
+      // SVの表示
+      document.getElementById('res-sv-shushoku').innerText = `${data.sv.shushoku.toFixed(1)} SV`;
+      document.getElementById('res-sv-fukusai').innerText = `${data.sv.fukusai.toFixed(1)} SV`;
+      document.getElementById('res-sv-shusai').innerText = `${data.sv.shusai.toFixed(1)} SV`;
+      document.getElementById('res-sv-milk').innerText = `${data.sv.milk.toFixed(1)} SV`;
+      document.getElementById('res-sv-fruit').innerText = `${data.sv.fruit.toFixed(1)} SV`;
+
+      // アドバイス
+      document.getElementById('food-advice').innerText = data.advice;
+
+      // 内訳テーブルの生成
+      const tbody = document.getElementById('result-breakdown-rows');
+      tbody.innerHTML = '';
+      if (data.breakdown && Array.isArray(data.breakdown)) {
+        data.breakdown.forEach(item => {
+          const row = document.createElement('tr');
+          row.className = "border-b border-slate-100 hover:bg-slate-50";
+          row.innerHTML = `
+            <td class="px-3 py-2 font-medium text-slate-800">${item.name}</td>
+            <td class="px-3 py-2 text-right text-slate-500">${item.weight || '-'}</td>
+            <td class="px-3 py-2 text-right font-bold text-slate-700">${Math.round(item.calories)} kcal</td>
+            <td class="px-3 py-2 text-slate-500">${item.feature || '-'}</td>
+          `;
+          tbody.appendChild(row);
+        });
+      }
+
+      // 結果までスクロール
+      resultSection.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // 「本日の記録に追加」アクション
+    function addLatestToToday() {
+      if (!latestAnalysis) return;
+
+      todayNutrition.calories += latestAnalysis.totalCalories;
+      todayNutrition.protein += latestAnalysis.protein;
+      todayNutrition.fat += latestAnalysis.fat;
+      todayNutrition.carbs += latestAnalysis.carbs;
+
+      todayNutrition.sv.shushoku += latestAnalysis.sv.shushoku;
+      todayNutrition.sv.fukusai += latestAnalysis.sv.fukusai;
+      todayNutrition.sv.shusai += latestAnalysis.sv.shusai;
+      todayNutrition.sv.milk += latestAnalysis.sv.milk;
+      todayNutrition.sv.fruit += latestAnalysis.sv.fruit;
+
+      saveToLocalStorage();
+      updateSvBars();
+
+      // 通知代わりにボタン状態を「追加済み」に一時変更
+      const addBtn = document.getElementById('add-to-today-btn');
+      const originalHtml = addBtn.innerHTML;
+      addBtn.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5"></i> <span>追加しました！</span>`;
+      addBtn.classList.replace('bg-emerald-600', 'bg-blue-600');
+      lucide.createIcons();
+
+      setTimeout(() => {
+        addBtn.innerHTML = originalHtml;
+        addBtn.classList.replace('bg-blue-600', 'bg-emerald-600');
+        lucide.createIcons();
+      }, 2000);
+    }
+
+    // --- 5. イベントリスナーと初期化設定 ---
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+
+      // プロフィールフォーム変更時にカロリー再計算
+      const profileInputs = ['age', 'gender', 'activity-level', 'current-weight', 'target-weight', 'weight-pace'];
+      profileInputs.forEach(id => {
+        document.getElementById(id).addEventListener('change', () => {
+          calculateDailyCalories();
+          saveToLocalStorage();
+        });
+      });
+
+      // アップロードエリアのインタラクション
+      const imageInput = document.getElementById('image-input');
+      const imagePreview = document.getElementById('image-preview');
+      const uploadPrompt = document.getElementById('upload-prompt');
+      const uploadContainer = document.getElementById('upload-container');
+
+      imageInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            imagePreview.src = event.target.result;
+            imagePreview.classList.remove('hidden');
+            uploadPrompt.classList.add('hidden');
+            uploadContainer.classList.remove('py-8');
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+
+      // ボタンアクション
+      document.getElementById('analyze-btn').addEventListener('click', analyzeFood);
+      document.getElementById('add-to-today-btn').addEventListener('click', addLatestToToday);
+      document.getElementById('reset-today-btn').addEventListener('click', () => {
+        if (confirm("今日の食事記録を本当にリセットしますか？")) {
+          resetToday();
+        }
+      });
+
+      // 初期ロード
+      loadFromLocalStorage();
+    });
+  </script>
+</body>
+</html>
