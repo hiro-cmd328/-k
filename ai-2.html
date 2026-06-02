@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI食事バランスチェッカー | 1ヶ月カレンダー＆自動保存</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&display=swap');
+    body {
+      font-family: 'Noto Sans JP', sans-serif;
+    }
+    .calendar-day-active {
+      view-transition-name: active-day;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen pb-12">
+
+  <!-- Header -->
+  <header class="bg-emerald-600 text-white shadow-md sticky top-0 z-30">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center gap-2">
+        <i data-lucide="utensils" class="w-6 h-6"></i>
+        <h1 class="text-xl font-bold tracking-tight">スマート食事コンパス</h1>
+      </div>
+      <div class="flex items-center gap-2">
+        <span id="storage-badge" class="text-xs bg-emerald-700 px-2.5 py-1 rounded-full font-medium border border-emerald-500 flex items-center gap-1">
+          <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+          <span>ローカル保存モード</span>
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto p-4 space-y-6">
+
+    <!-- 1. ユーザー設定セクション -->
+    <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+      <div class="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2">
+          <i data-lucide="user" class="text-emerald-600 w-5 h-5"></i>
+          <h2 class="text-lg font-bold">プロフィールと目標設定</h2>
+        </div>
+        <span class="text-xs text-slate-400 font-medium flex items-center gap-1">
+          <i data-lucide="save" class="w-3.5 h-3.5"></i>自動保存中
+        </span>
+      </div>
+
+      <form id="profile-form" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">年齢</label>
+          <input type="number" id="age" value="30" min="1" max="120" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">性別</label>
+          <select id="gender" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <option value="male">男性</option>
+            <option value="female" selected>女性</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">身体活動レベル (日常の運動量)</label>
+          <select id="activity-level" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <option value="1">低い (静的な活動が中心)</option>
+            <option value="2" selected>普通 (通勤・軽い運動)</option>
+            <option value="3">高い (活発な運動習慣)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">現在の体重 (kg)</label>
+          <input type="number" id="current-weight" value="60" step="0.1" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">目指す目標体重 (kg)</label>
+          <input type="number" id="target-weight" value="55" step="0.1" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-500 mb-1">目標達成ペース</label>
+          <select id="weight-pace" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <option value="keep">現在の体重を維持する</option>
+            <option value="slow-lose">ゆっくり減量 (月-1kg程度)</option>
+            <option value="normal-lose" selected>標準的な減量 (月-2kg程度)</option>
+            <option value="slow-gain">ゆっくり増量 (月+1kg程度)</option>
+          </select>
+        </div>
+      </form>
+
+      <!-- 計算結果まとめ -->
+      <div class="mt-6 bg-emerald-50 border border-emerald-100 rounded-xl p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <div class="text-xs text-slate-500 font-medium">日本人の食事摂取基準に基づく</div>
+          <div class="text-sm font-semibold text-slate-700">あなたの推定エネルギー必要量: <span id="base-calories-display" class="font-bold text-slate-900">1950</span> kcal/日</div>
+          <div class="text-xs text-emerald-600 mt-1 font-medium" id="goal-description-display">目標体重に向け調整を行います。</div>
+        </div>
+        <div class="text-left md:text-right bg-white px-4 py-2 rounded-lg shadow-sm border border-emerald-200/50 w-full md:w-auto">
+          <span class="text-xs text-slate-500 block font-medium">1日の目標摂取エネルギー</span>
+          <span id="target-calories-display" class="text-2xl font-black text-emerald-600">1710</span> <span class="text-xs font-bold text-slate-600">kcal/日</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. 1ヶ月の食事管理カレンダー（新機能） -->
+    <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4 border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2">
+          <i data-lucide="calendar" class="text-emerald-600 w-5 h-5"></i>
+          <h2 class="text-lg font-bold">1ヶ月の記録カレンダー</h2>
+        </div>
+        <div class="flex items-center gap-2 self-end sm:self-auto">
+          <button id="prev-month-btn" class="p-1 hover:bg-slate-100 rounded-lg transition"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
+          <span id="calendar-month-year" class="text-sm font-bold text-slate-700 min-w-[80px] text-center">2026年6月</span>
+          <button id="next-month-btn" class="p-1 hover:bg-slate-100 rounded-lg transition"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
+        </div>
+      </div>
+
+      <!-- カレンダーグリッド -->
+      <div class="mb-4">
+        <div class="grid grid-cols-7 gap-1 text-center text-xs font-bold text-slate-400 mb-2">
+          <div class="text-rose-500">日</div>
+          <div>月</div>
+          <div>火</div>
+          <div>水</div>
+          <div>木</div>
+          <div>金</div>
+          <div class="text-blue-500">土</div>
+        </div>
+        <div id="calendar-grid" class="grid grid-cols-7 gap-2">
+          <!-- JSで動的にカレンダーの日付を配置 -->
+        </div>
+      </div>
+
+      <!-- 現在選択されている日付の情報 -->
+      <div class="bg-slate-50 rounded-xl p-4 border border-slate-200/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div>
+          <span class="text-xs text-slate-400 block font-medium">選択中の日付</span>
+          <span id="selected-date-display" class="text-base font-bold text-slate-800 flex items-center gap-1.5">
+            <i data-lucide="calendar-days" class="w-4 h-4 text-emerald-600"></i>
+            <span>2026年6月3日</span>
+          </span>
+        </div>
+        <div class="flex flex-wrap gap-2 w-full sm:w-auto">
+          <button id="open-edit-modal-btn" class="flex-1 sm:flex-none text-xs bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold py-2 px-3.5 rounded-lg transition flex items-center justify-center gap-1.5">
+            <i data-lucide="edit-3" class="w-3.5 h-3.5 text-slate-500"></i>
+            <span>数値を直接編集（上書き修正）</span>
+          </button>
+          <button id="reset-selected-day-btn" class="flex-1 sm:flex-none text-xs bg-rose-50 hover:bg-rose-100 border border-rose-100 text-rose-600 font-bold py-2 px-3.5 rounded-lg transition flex items-center justify-center gap-1.5">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            <span>この日をクリア</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. 食事の追加・今日のサマリー -->
+    <section class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+      <div class="flex items-center gap-2 mb-4 border-b border-slate-100 pb-3">
+        <i data-lucide="plus-circle" class="text-emerald-600 w-5 h-5"></i>
+        <h2 id="section-add-meal-title" class="text-lg font-bold">2026年6月3日の食事を記録する</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- アップロード・キャプチャエリア -->
+        <div class="flex flex-col gap-4">
+          <div class="border-2 border-dashed border-slate-200 rounded-xl p-4 flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100/50 transition cursor-pointer relative min-h-[220px]" id="upload-container">
+            <input type="file" id="image-input" accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer">
+            <div id="upload-prompt" class="text-center">
+              <i data-lucide="image-plus" class="w-12 h-12 text-slate-400 mx-auto mb-3"></i>
+              <p class="text-sm font-semibold text-slate-700">食事の写真を選択、またはカメラで撮影</p>
+              <p class="text-xs text-slate-400 mt-1">対応形式: PNG, JPEG, WEBP</p>
+            </div>
+            <img id="image-preview" class="hidden max-h-[220px] rounded-lg object-contain" alt="プレビュー">
+          </div>
+
+          <!-- 代替テキスト入力 -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label class="block text-xs font-semibold text-slate-500">または、食べたメニューを直接入力する</label>
+            </div>
+            <input type="text" id="manual-food-input" placeholder="例: ハンバーグステーキ、ライス、目玉焼き" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          </div>
+
+          <button id="analyze-btn" class="w-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold py-3 px-4 rounded-xl shadow-md transition flex items-center justify-center gap-2">
+            <i data-lucide="wand-2" class="w-5 h-5"></i>
+            <span>AIで食事を解析・追加する</span>
+          </button>
+        </div>
+
+        <!-- 選択日の食事バランス（コマのバランス） -->
+        <div class="bg-slate-50 rounded-xl p-4 border border-slate-200/60 flex flex-col justify-between">
+          <div>
+            <h3 class="text-sm font-bold text-slate-700 flex items-center gap-1.5 mb-2">
+              <i data-lucide="pie-chart" class="w-4 h-4 text-amber-500"></i>
+              <span>選択日のバランス（農水省基準）</span>
+            </h3>
+            <p class="text-[11px] text-slate-400 mb-4 leading-relaxed">
+              「食事バランスガイド」の目標SV数に対する、選択された日付の累計バランスです。
+            </p>
+
+            <!-- 5つの区分 -->
+            <div class="space-y-3" id="sv-bars-container">
+              <div>
+                <div class="flex justify-between text-xs font-medium text-slate-600 mb-1">
+                  <span>主食 (ごはん・パン・麺)</span>
+                  <span id="sv-display-shushoku">0 / 5 SV</span>
+                </div>
+                <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                  <div id="sv-bar-shushoku" class="bg-amber-500 h-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+              </div>
+
+              <div>
+                <div class="flex justify-between text-xs font-medium text-slate-600 mb-1">
+                  <span>副菜 (野菜・きのこ・海藻)</span>
+                  <span id="sv-display-fukusai">0 / 5 SV</span>
+                </div>
+                <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                  <div id="sv-bar-fukusai" class="bg-emerald-500 h-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+              </div>
+
+              <div>
+                <div class="flex justify-between text-xs font-medium text-slate-600 mb-1">
+                  <span>主菜 (肉・魚・卵・大豆)</span>
+                  <span id="sv-display-shusai">0 / 3 SV</span>
+                </div>
+                <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                  <div id="sv-bar-shusai" class="bg-rose-500 h-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+              </div>
+
+              <div>
+                <div class="flex justify-between text-xs font-medium text-slate-600 mb-1">
+                  <span>牛乳・乳製品</span>
+                  <span id="sv-display-milk">0 / 2 SV</span>
+                </div>
+                <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                  <div id="sv-bar-milk" class="bg-blue-500 h-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+              </div>
+
+              <div>
+                <div class="flex justify-between text-xs font-medium text-slate-600 mb-1">
+                  <span>果物</span>
+                  <span id="sv-display-fruit">0 / 2 SV</span>
+                </div>
+                <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                  <div id="sv-bar-fruit" class="bg-yellow-500 h-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-slate-200 flex justify-between items-center text-xs">
+            <span class="text-slate-500">選択日合計: <span id="today-calories-total" class="font-bold text-slate-800 text-sm">0</span> / <span id="today-calories-target-ref" class="text-sm">1710</span> kcal</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ローディング表示 -->
+    <div id="loading-spinner" class="hidden bg-white rounded-2xl p-8 shadow-sm border border-slate-100 text-center">
+      <div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-emerald-500 border-t-transparent mb-3"></div>
+      <p class="text-sm font-semibold text-slate-700">AIが料理を精密に認識してカロリーと栄養素、SV値を計算しています...</p>
+      <p class="text-xs text-slate-400 mt-1">しばらくお待ちください（数秒かかる場合があります）</p>
+    </div>
+
+    <!-- エラーメッセージ表示 -->
+    <div id="error-box" class="hidden bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-sm flex items-start gap-2">
+      <i data-lucide="alert-circle" class="w-5 h-5 shrink-0 mt-0.5"></i>
+      <div>
+        <p class="font-bold">分析中にエラーが発生しました</p>
+        <p id="error-message-text" class="text-xs mt-1">画像形式やテキスト入力を確認してもう一度お試しください。</p>
+      </div>
+    </div>
+
+    <!-- 4. 分析結果表示セクション -->
+    <section id="analysis-result-section" class="hidden bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+      <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2">
+          <i data-lucide="sparkles" class="text-amber-500 w-5 h-5"></i>
+          <h2 class="text-lg font-bold">AI食事分析結果</h2>
+        </div>
+        <button id="add-to-today-btn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs py-1.5 px-3 rounded-lg shadow transition flex items-center gap-1">
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i> <span id="add-btn-text">選択した日に記録を追加</span>
+        </button>
+      </div>
+
+      <!-- メイン料理情報 -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div class="md:col-span-2">
+          <h3 id="food-title" class="text-2xl font-black text-slate-900 mb-1">分析中料理名</h3>
+          <p id="food-description" class="text-sm text-slate-500 mb-4">説明がここに入ります。</p>
+
+          <!-- カロリーと三大栄養素 -->
+          <div class="grid grid-cols-4 gap-2 text-center">
+            <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
+              <span class="text-[10px] font-bold text-slate-500 block mb-0.5">カロリー</span>
+              <span id="result-calories" class="text-base sm:text-lg font-extrabold text-emerald-600">0</span><span class="text-[10px] text-slate-400 block sm:inline sm:ml-0.5">kcal</span>
+            </div>
+            <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
+              <span class="text-[10px] font-bold text-slate-500 block mb-0.5">たんぱく質</span>
+              <span id="result-protein" class="text-base sm:text-lg font-extrabold text-slate-800">0</span><span class="text-[10px] text-slate-400 block sm:inline sm:ml-0.5">g</span>
+            </div>
+            <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
+              <span class="text-[10px] font-bold text-slate-500 block mb-0.5">脂質</span>
+              <span id="result-fat" class="text-base sm:text-lg font-extrabold text-slate-800">0</span><span class="text-[10px] text-slate-400 block sm:inline sm:ml-0.5">g</span>
+            </div>
+            <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
+              <span class="text-[10px] font-bold text-slate-500 block mb-0.5">炭水化物</span>
+              <span id="result-carbs" class="text-base sm:text-lg font-extrabold text-slate-800">0</span><span class="text-[10px] text-slate-400 block sm:inline sm:ml-0.5">g</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 食事バランスガイド（SV）詳細 -->
+        <div class="bg-amber-50/50 rounded-xl p-4 border border-amber-100">
+          <h4 class="text-xs font-bold text-amber-800 mb-3 flex items-center gap-1">
+            <i data-lucide="compass" class="w-3.5 h-3.5"></i>
+            この食事のSV（つ）換算値
+          </h4>
+          <ul class="space-y-2 text-xs text-slate-700" id="result-sv-list">
+            <li class="flex justify-between border-b border-amber-100/60 pb-1"><span>主食 (ごはん類)</span><span class="font-bold text-amber-700" id="res-sv-shushoku">0.0 SV</span></li>
+            <li class="flex justify-between border-b border-amber-100/60 pb-1"><span>副菜 (野菜類)</span><span class="font-bold text-emerald-700" id="res-sv-fukusai">0.0 SV</span></li>
+            <li class="flex justify-between border-b border-amber-100/60 pb-1"><span>主菜 (肉・魚類)</span><span class="font-bold text-rose-700" id="res-sv-shusai">0.0 SV</span></li>
+            <li class="flex justify-between border-b border-amber-100/60 pb-1"><span>牛乳・乳製品</span><span class="font-bold text-blue-700" id="res-sv-milk">0.0 SV</span></li>
+            <li class="flex justify-between pb-1"><span>果物</span><span class="font-bold text-yellow-700" id="res-sv-fruit">0.0 SV</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 内訳詳細テーブル -->
+      <div class="mb-4">
+        <h4 class="text-xs font-bold text-slate-600 mb-2 uppercase tracking-wider">構成メニュー詳細</h4>
+        <div class="overflow-x-auto border border-slate-100 rounded-lg">
+          <table class="w-full text-xs text-left text-slate-600">
+            <thead class="bg-slate-50 text-slate-500 uppercase">
+              <tr>
+                <th class="px-3 py-2">食材・料理</th>
+                <th class="px-3 py-2 text-right">推定分量</th>
+                <th class="px-3 py-2 text-right">カロリー</th>
+                <th class="px-3 py-2">栄養特徴</th>
+              </tr>
+            </thead>
+            <tbody id="result-breakdown-rows">
+              <!-- 動的生成 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- AIからの管理アドバイス -->
+      <div class="bg-emerald-50 rounded-xl p-4 border border-emerald-100 flex gap-3">
+        <i data-lucide="message-square" class="text-emerald-600 w-5 h-5 shrink-0 mt-0.5"></i>
+        <div>
+          <h4 class="text-xs font-bold text-emerald-800">食事アドバイス</h4>
+          <p id="food-advice" class="text-xs text-slate-600 mt-1 leading-relaxed">
+            バランスアドバイスがここに表示されます。
+          </p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 直接編集（上書き・修正用）モーダル -->
+  <div id="edit-modal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-100 pb-2">
+        <h3 class="text-base font-bold text-slate-900 flex items-center gap-1.5">
+          <i data-lucide="edit-2" class="text-emerald-600 w-4 h-4"></i>
+          <span id="modal-date-title">2026/06/03 の記録を直接修正</span>
+        </h3>
+        <button id="close-modal-btn" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 text-xs">
+        <div class="col-span-2 border-b border-slate-100 pb-1 mb-1">
+          <span class="font-bold text-slate-500">三大栄養素・カロリー</span>
+        </div>
+        <div>
+          <label class="block font-medium text-slate-600 mb-1">総カロリー (kcal)</label>
+          <input type="number" id="edit-calories" class="w-full border border-slate-200 rounded-lg p-2">
+        </div>
+        <div>
+          <label class="block font-medium text-slate-600 mb-1">たんぱく質 (g)</label>
+          <input type="number" id="edit-protein" class="w-full border border-slate-200 rounded-lg p-2" step="0.1">
+        </div>
+        <div>
+          <label class="block font-medium text-slate-600 mb-1">脂質 (g)</label>
+          <input type="number" id="edit-fat" class="w-full border border-slate-200 rounded-lg p-2" step="0.1">
+        </div>
+        <div>
+          <label class="block font-medium text-slate-600 mb-1">炭水化物 (g)</label>
+          <input type="number" id="edit-carbs" class="w-full border border-slate-200 rounded-lg p-2" step="0.1">
+        </div>
+
+        <div class="col-span-2 border-b border-slate-100 pb-1 mt-2 mb-1">
+          <span class="font-bold text-slate-500">食事バランスガイド (SV)</span>
+        </div>
+        <div>
+          <label class="block font-medium text-slate-600 mb-1">主食 SV (ごはん等)</label>
+          <input type="number" id="edit-sv-shushoku" class="w-full border border-slate-200 rounded-lg p-2" step="0.5">
+        </div>
+        <div>
+          <label class="block font-medium text-slate-600 mb-1">副菜 SV (野菜類)</label>
+          <input type="number" id="edit-sv-fukusai" class="w-full border border-slate-200 rounded-lg p-2" step="0.5">
+        </div>
+        <div>
+          <label class="block font-medium text-slate-600 mb-1">主菜 SV (肉・魚類)</label>
+          <input type="number" id="edit-sv-shusai" class="w-full border border-slate-200 rounded-lg p-2" step="0.5">
+        </div>
+        <div>
+          <label class="block font-medium text-slate-600 mb-1">牛乳・乳製品 SV</label>
+          <input type="number" id="edit-sv-milk" class="w-full border border-slate-200 rounded-lg p-2" step="0.5">
+        </div>
+        <div class="col-span-2">
+          <label class="block font-medium text-slate-600 mb-1">果物 SV</label>
+          <input type="number" id="edit-sv-fruit" class="w-full border border-slate-200 rounded-lg p-2" step="0.5">
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-slate-100 flex gap-2">
+        <button id="cancel-modal-btn" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 rounded-xl text-xs transition">キャンセル</button>
+        <button id="save-modal-btn" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl text-xs shadow-md transition flex items-center justify-center gap-1">
+          <i data-lucide="check" class="w-4 h-4"></i>
+          <span>修正（上書き保存）</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- カスタムダイアログ（alert/confirmの代替） -->
+  <div id="confirm-modal" class="hidden fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-5 shadow-xl space-y-4">
+      <div class="flex items-center gap-2 text-rose-500">
+        <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+        <h4 id="confirm-title" class="text-base font-bold text-slate-900">確認</h4>
+      </div>
+      <p id="confirm-message" class="text-xs text-slate-600 leading-relaxed">確認のメッセージ内容</p>
+      <div class="flex gap-2">
+        <button id="confirm-cancel-btn" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 rounded-xl text-xs transition">いいえ</button>
+        <button id="confirm-ok-btn" class="flex-1 bg-rose-500 hover:bg-rose-600 text-white font-bold py-2 rounded-xl text-xs transition">はい</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase / Cloud Sync & Local Storage Setup -->
+  <script type="module">
+    // Firebase設定 (Canvas環境の時のみ有効。無い時は自動で安全にローカルストレージへフォールバック)
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    window.firebaseConfig = {
+      initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, getFirestore, doc, getDoc, setDoc
+    };
+  </script>
+
+  <script>
+    // --- 1. グローバル設定 & データ構造 ---
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'calorie-balance-tracker';
+    const hasFirebase = typeof __firebase_config !== 'undefined';
+    let db = null;
+    let auth = null;
+    let currentUser = null;
+
+    // 現在選択中の日付 (デフォルト：今日)
+    let selectedDateStr = getFormattedDate(new Date());
+    let currentYearMonth = new Date(); // カレンダー表示用
+
+    // ユーザープロファイル
+    let userProfile = {
+      age: 30,
+      gender: 'female',
+      activityLevel: 2,
+      currentWeight: 60,
+      targetWeight: 55,
+      weightPace: 'normal-lose'
+    };
+
+    // カレンダー記録（キー: 'YYYY-MM-DD', 値: 栄養状態オブジェクト）
+    let nutritionLogs = {};
+
+    // 1日の空の栄養オブジェクト
+    function createEmptyLog() {
+      return {
+        calories: 0,
+        protein: 0,
+        fat: 0,
+        carbs: 0,
+        sv: { shushoku: 0, fukusai: 0, shusai: 0, milk: 0, fruit: 0 }
+      };
+    }
+
+    // 1日の目標バランス
+    let dailyTarget = {
+      calories: 1710,
+      sv: { shushoku: 5, fukusai: 5, shusai: 3, milk: 2, fruit: 2 }
+    };
+
+    let latestAnalysis = null; // 直近の解析結果の一時保存
+
+    // --- STREAMING_CHUNK: Storage Sync and Cloud Backend... ---
+    // クラウド/ローカルデータベースとの同期システム
+    async function initDatabase() {
+      const storageBadge = document.getElementById('storage-badge');
+
+      if (hasFirebase && window.firebaseConfig) {
+        try {
+          const config = JSON.parse(__firebase_config);
+          const lib = window.firebaseConfig;
+          const app = lib.initializeApp(config);
+          db = lib.getFirestore(app);
+          auth = lib.getAuth(app);
+
+          // 認証
+          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            await lib.signInWithCustomToken(auth, __initial_auth_token);
+          } else {
+            await lib.signInAnonymously(auth);
+          }
+
+          currentUser = auth.currentUser;
+          if (currentUser) {
+            storageBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span><span>クラウド同期モード</span>`;
+            storageBadge.className = "text-xs bg-emerald-700 px-2.5 py-1 rounded-full font-medium border border-emerald-500 flex items-center gap-1";
+            
+            // クラウドから読み込み
+            await loadFromCloud();
+            return;
+          }
+        } catch (e) {
+          console.error("Firebaseの初期化に失敗しました。ローカル保存にフォールバックします:", e);
+        }
+      }
+
+      // フォールバック: ローカルストレージ
+      storageBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span><span>ローカル保存モード (自動)</span>`;
+      storageBadge.className = "text-xs bg-slate-700 px-2.5 py-1 rounded-full font-medium border border-slate-600 flex items-center gap-1";
+      loadFromLocalStorage();
+    }
+
+    // クラウドからデータ読み込み
+    async function loadFromCloud() {
+      if (!currentUser || !db) return;
+      try {
+        const lib = window.firebaseConfig;
+        const userDocRef = lib.doc(db, 'artifacts', appId, 'users', currentUser.uid, 'profile', 'userData');
+        const docSnap = await lib.getDoc(userDocRef);
+
+        if (docSnap.exists()) {
+          const cloudData = docSnap.data();
+          if (cloudData.userProfile) userProfile = cloudData.userProfile;
+          if (cloudData.nutritionLogs) nutritionLogs = cloudData.nutritionLogs;
+          
+          applyProfileToInputs();
+          calculateDailyCalories();
+          renderCalendar();
+          updateSelectedDaySummary();
+        } else {
+          // 初期データを保存
+          loadFromLocalStorage(); // ローカルにあればそれを引き継ぐ
+          await saveToCloud();
+        }
+      } catch (e) {
+        console.error("クラウドデータの読み込みに失敗しました:", e);
+        loadFromLocalStorage();
+      }
+    }
+
+    // クラウドにデータ保存
+    async function saveToCloud() {
+      if (!currentUser || !db) return;
+      try {
+        const lib = window.firebaseConfig;
+        const userDocRef = lib.doc(db, 'artifacts', appId, 'users', currentUser.uid, 'profile', 'userData');
+        await lib.setDoc(userDocRef, {
+          userProfile,
+          nutritionLogs,
+          updatedAt: new Date().toISOString()
+        });
+      } catch (e) {
+        console.error("クラウド保存に失敗しました:", e);
+      }
+    }
+
+    // ローカルストレージ保存・読み込み
+    function saveToLocalStorage() {
+      localStorage.setItem('diet_compass_user_profile', JSON.stringify(userProfile));
+      localStorage.setItem('diet_compass_nutrition_logs', JSON.stringify(nutritionLogs));
+    }
+
+    function loadFromLocalStorage() {
+      const savedProfile = localStorage.getItem('diet_compass_user_profile');
+      if (savedProfile) {
+        try {
+          userProfile = JSON.parse(savedProfile);
+          applyProfileToInputs();
+        } catch (e) { console.error(e); }
+      }
+      const savedLogs = localStorage.getItem('diet_compass_nutrition_logs');
+      if (savedLogs) {
+        try {
+          nutritionLogs = JSON.parse(savedLogs);
+        } catch (e) { console.error(e); }
+      }
+      calculateDailyCalories();
+      renderCalendar();
+      updateSelectedDaySummary();
+    }
+
+    // 変更時の汎用保存処理
+    async function triggerDataSave() {
+      saveToLocalStorage();
+      if (currentUser && db) {
+        await saveToCloud();
+      }
+    }
+
+    // --- STREAMING_CHUNK: Date and Helper utilities... ---
+    // 日付フォーマット YYYY-MM-DD
+    function getFormattedDate(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    // 和風日付表示
+    function getJapaneseDateStr(dateStr) {
+      const parts = dateStr.split('-');
+      return `${parts[0]}年${parseInt(parts[1])}月${parseInt(parts[2])}日`;
+    }
+
+    // プロファイルのUI反映
+    function applyProfileToInputs() {
+      document.getElementById('age').value = userProfile.age;
+      document.getElementById('gender').value = userProfile.gender;
+      document.getElementById('activity-level').value = userProfile.activityLevel;
+      document.getElementById('current-weight').value = userProfile.currentWeight;
+      document.getElementById('target-weight').value = userProfile.targetWeight;
+      document.getElementById('weight-pace').value = userProfile.weightPace;
+    }
+
+    // --- STREAMING_CHUNK: Japanese Standard Nutrition Calculator... ---
+    // 日本人の食事摂取基準に基づくカロリー調整
+    function calculateDailyCalories() {
+      const age = parseInt(document.getElementById('age').value) || 30;
+      const gender = document.getElementById('gender').value;
+      const activityLevel = parseInt(document.getElementById('activity-level').value) || 2;
+      const currentWeight = parseFloat(document.getElementById('current-weight').value) || 60;
+      const targetWeight = parseFloat(document.getElementById('target-weight').value) || 55;
+      const weightPace = document.getElementById('weight-pace').value;
+
+      let metabolicRatePerKg = 22.0;
+      if (gender === 'male') {
+        if (age < 18) metabolicRatePerKg = 24.0;
+        else if (age < 30) metabolicRatePerKg = 24.0;
+        else if (age < 50) metabolicRatePerKg = 22.5;
+        else if (age < 65) metabolicRatePerKg = 21.5;
+        else metabolicRatePerKg = 20.7;
+      } else {
+        if (age < 18) metabolicRatePerKg = 23.0;
+        else if (age < 30) metabolicRatePerKg = 22.1;
+        else if (age < 50) metabolicRatePerKg = 21.7;
+        else if (age < 65) metabolicRatePerKg = 20.7;
+        else metabolicRatePerKg = 20.0;
+      }
+
+      const basalMetabolism = metabolicRatePerKg * currentWeight;
+      let activityFactor = 1.75;
+      if (activityLevel === 1) activityFactor = 1.50;
+      else if (activityLevel === 3) activityFactor = 2.00;
+
+      const baseCalories = Math.round(basalMetabolism * activityFactor);
+      let calorieAdjustment = 0;
+      let paceText = "現在の体重を維持する基準です。";
+
+      if (weightPace === 'slow-lose') {
+        calorieAdjustment = -240;
+        paceText = "ゆっくり減量（月約-1kg）のため、毎日 -240 kcal を調整。";
+      } else if (weightPace === 'normal-lose') {
+        calorieAdjustment = -480;
+        paceText = "標準的な減量（月約-2kg）のため、毎日 -480 kcal を調整。";
+      } else if (weightPace === 'slow-gain') {
+        calorieAdjustment = 240;
+        paceText = "ゆっくり増量（月約+1kg）のため、毎日 +240 kcal を調整。";
+      }
+
+      let targetCalories = Math.max(1200, baseCalories + calorieAdjustment);
+
+      // 食事バランスガイド目標SV自動配分
+      let targetSv = { shushoku: 5, fukusai: 5, shusai: 3, milk: 2, fruit: 2 };
+      if (targetCalories < 1600) {
+        targetSv = { shushoku: 4, fukusai: 5, shusai: 3, milk: 2, fruit: 2 };
+      } else if (targetCalories >= 2200) {
+        targetSv = { shushoku: 7, fukusai: 6, shusai: 4, milk: 2, fruit: 2 };
+      }
+
+      document.getElementById('base-calories-display').innerText = baseCalories;
+      document.getElementById('goal-description-display').innerText = paceText;
+      document.getElementById('target-calories-display').innerText = targetCalories;
+      document.getElementById('today-calories-target-ref').innerText = targetCalories;
+
+      userProfile = { age, gender, activityLevel, currentWeight, targetWeight, weightPace };
+      dailyTarget = { calories: targetCalories, sv: targetSv };
+
+      updateSelectedDaySummary();
+    }
+
+    // --- STREAMING_CHUNK: Calendar UI Engine... ---
+    // カレンダーの描画ロジック
+    function renderCalendar() {
+      const year = currentYearMonth.getFullYear();
+      const month = currentYearMonth.getMonth();
+
+      document.getElementById('calendar-month-year').innerText = `${year}年${month + 1}月`;
+
+      const firstDay = new Date(year, month, 1).getDay();
+      const totalDays = new Date(year, month + 1, 0).getDate();
+
+      const grid = document.getElementById('calendar-grid');
+      grid.innerHTML = '';
+
+      // 空白スペースの挿入
+      for (let i = 0; i < firstDay; i++) {
+        const emptyCell = document.createElement('div');
+        emptyCell.className = "aspect-square bg-slate-50 border border-transparent rounded-lg";
+        grid.appendChild(emptyCell);
+      }
+
+      // 日付セルの生成
+      for (let day = 1; day <= totalDays; day++) {
+        const dayStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const dayLog = nutritionLogs[dayStr];
+        const isSelected = dayStr === selectedDateStr;
+
+        const cell = document.createElement('div');
+        cell.className = `aspect-square bg-white border rounded-xl p-1 flex flex-col justify-between cursor-pointer transition relative group ${
+          isSelected ? 'border-emerald-500 ring-2 ring-emerald-100' : 'border-slate-100 hover:border-slate-300'
+        }`;
+
+        // 日付の表示
+        const dayNum = document.createElement('span');
+        dayNum.className = `text-[11px] font-bold ${
+          isSelected ? 'text-emerald-600' : 'text-slate-600'
+        }`;
+        dayNum.innerText = day;
+        cell.appendChild(dayNum);
+
+        // 記録状況の可視化
+        if (dayLog && dayLog.calories > 0) {
+          const calText = document.createElement('span');
+          calText.className = "text-[9px] font-black block text-center truncate leading-none mb-1";
+          calText.innerText = `${Math.round(dayLog.calories)}`;
+
+          // カロリー目標に対する色の決定
+          const diff = dayLog.calories - dailyTarget.calories;
+          if (Math.abs(diff) <= 150) {
+            calText.classList.add('text-emerald-600'); // 目標ピッタリ付近
+            cell.classList.add('bg-emerald-50/50');
+          } else if (diff > 150) {
+            calText.classList.add('text-rose-500'); // オーバー
+            cell.classList.add('bg-rose-50/30');
+          } else {
+            calText.classList.add('text-sky-600'); // アンダー
+            cell.classList.add('bg-sky-50/30');
+          }
+          cell.appendChild(calText);
+
+          // 小さなSV簡易ドットバー
+          const dots = document.createElement('div');
+          dots.className = "flex gap-0.5 justify-center mt-auto pb-0.5";
+          const svTypes = [
+            { key: 'shushoku', color: 'bg-amber-500' },
+            { key: 'fukusai', color: 'bg-emerald-500' },
+            { key: 'shusai', color: 'bg-rose-500' }
+          ];
+          svTypes.forEach(t => {
+            if (dayLog.sv[t.key] > 0) {
+              const dot = document.createElement('span');
+              dot.className = `w-1 h-1 rounded-full ${t.color}`;
+              dots.appendChild(dot);
+            }
+          });
+          cell.appendChild(dots);
+        } else {
+          // 記録なし
+          const placeholder = document.createElement('span');
+          placeholder.className = "text-[9px] text-slate-300 block text-center truncate mb-1 opacity-0 group-hover:opacity-100 transition";
+          placeholder.innerText = "-";
+          cell.appendChild(placeholder);
+        }
+
+        cell.addEventListener('click', () => {
+          setSelectedDate(dayStr);
+        });
+
+        grid.appendChild(cell);
+      }
+    }
+
+    // 選択された日付の切り替え
+    function setSelectedDate(dateStr) {
+      selectedDateStr = dateStr;
+      
+      // UIのタイトルや説明、インプットの更新
+      document.getElementById('selected-date-display').querySelector('span').innerText = getJapaneseDateStr(dateStr);
+      document.getElementById('section-add-meal-title').innerText = `${getJapaneseDateStr(dateStr)}の食事を記録する`;
+      
+      renderCalendar();
+      updateSelectedDaySummary();
+    }
+
+    // 選択された日付の栄養状況を反映
+    function updateSelectedDaySummary() {
+      const activeLog = nutritionLogs[selectedDateStr] || createEmptyLog();
+
+      const items = [
+        { id: 'shushoku', target: dailyTarget.sv.shushoku },
+        { id: 'fukusai', target: dailyTarget.sv.fukusai },
+        { id: 'shusai', target: dailyTarget.sv.shusai },
+        { id: 'milk', target: dailyTarget.sv.milk },
+        { id: 'fruit', target: dailyTarget.sv.fruit }
+      ];
+
+      items.forEach(item => {
+        const val = activeLog.sv[item.id] || 0;
+        const percent = Math.min(100, (val / item.target) * 100);
+        document.getElementById(`sv-display-${item.id}`).innerText = `${val.toFixed(1)} / ${item.target} SV`;
+        document.getElementById(`sv-bar-${item.id}`).style.width = `${percent}%`;
+      });
+
+      document.getElementById('today-calories-total').innerText = Math.round(activeLog.calories);
+    }
+
+    // --- STREAMING_CHUNK: Deep Vision Food Analyzer... ---
+    // AI分析へのリクエスト
+    async function analyzeFood() {
+      const imageInput = document.getElementById('image-input');
+      const manualInput = document.getElementById('manual-food-input').value.trim();
+      const errorBox = document.getElementById('error-box');
+      const errorText = document.getElementById('error-message-text');
+      const loadingSpinner = document.getElementById('loading-spinner');
+      const resultSection = document.getElementById('analysis-result-section');
+
+      errorBox.classList.add('hidden');
+      resultSection.classList.add('hidden');
+
+      const file = imageInput.files[0];
+      const hasImage = !!file;
+
+      if (!hasImage && !manualInput) {
+        showCustomConfirm("食事の写真を撮る、またはメニューを入力してください。", false);
+        return;
+      }
+
+      loadingSpinner.classList.remove('hidden');
+
+      try {
+        const systemPrompt = `
+          あなたは優秀な日本の管理栄養士です。
+          農林水産省・厚生労働省「食事バランスガイド」と「日本人の食事摂取基準」に則り、提供された食事情報からカロリー、PFCバランス、およびSV（つ）値を計算してください。
+
+          次のJSON形式でのみ出力してください。他のコメント等は一切含めないでください。
+
+          {
+            "foodTitle": "料理の代表名（例: カツカレー）",
+            "description": "食事の簡潔な解説（2〜3文）",
+            "totalCalories": カロリー(数値),
+            "protein": タンパク質g数(数値),
+            "fat": 脂質g数(数値),
+            "carbs": 炭水化物g数(数値),
+            "sv": {
+              "shushoku": 主食のSV（数値。ごはん大盛り3.0, 並2.0等）",
+              "fukusai": 副菜のSV（数値。サラダ・小鉢1皿1.0等）",
+              "shusai": 主菜のSV（数値。ハンバーグ・カツなど2.0〜3.0等）",
+              "milk": 乳製品のSV（数値）",
+              "fruit": 果物のSV（数値）"
+            },
+            "breakdown": [
+              {
+                "name": "構成する料理・具材名",
+                "weight": "分量・重量（例: 200g、1皿、1杯など）",
+                "calories": カロリー(数値),
+                "feature": "栄養的な特徴"
+              }
+            ],
+            "advice": "次の食事に向けたバランスアドバイス（例：不足している副菜を1SV補いましょうなど）"
+          }
+        `;
+
+        let userPrompt = "この食事を分析してください。";
+        if (manualInput) {
+          userPrompt += ` 分析対象メニュー: "${manualInput}"`;
+        }
+
+        let payload = {};
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+        if (hasImage) {
+          const base64Data = await getBase64(file);
+          const rawBase64 = base64Data.split(',')[1];
+          const mimeType = file.type;
+
+          payload = {
+            contents: [{
+              role: "user",
+              parts: [
+                { text: userPrompt },
+                { inlineData: { mimeType: mimeType, data: rawBase64 } }
+              ]
+            }],
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            generationConfig: { responseMimeType: "application/json" }
+          };
+        } else {
+          payload = {
+            contents: [{ parts: [{ text: userPrompt }] }],
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            generationConfig: { responseMimeType: "application/json" }
+          };
+        }
+
+        const result = await fetchWithRetry(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const contentText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!contentText) {
+          throw new Error("AIから応答が得られませんでした。");
+        }
+
+        const data = JSON.parse(contentText);
+        latestAnalysis = data;
+        displayAnalysisResult(data);
+
+      } catch (err) {
+        console.error(err);
+        errorBox.classList.remove('hidden');
+        errorText.innerText = err.message || "解析中にエラーが発生しました。時間を空けてもう一度お試しください。";
+      } finally {
+        loadingSpinner.classList.add('hidden');
+      }
+    }
+
+    // 解析結果のUIへの埋め込み
+    function displayAnalysisResult(data) {
+      const resultSection = document.getElementById('analysis-result-section');
+      resultSection.classList.remove('hidden');
+
+      document.getElementById('food-title').innerText = data.foodTitle;
+      document.getElementById('food-description').innerText = data.description;
+      document.getElementById('result-calories').innerText = Math.round(data.totalCalories);
+      document.getElementById('result-protein').innerText = data.protein.toFixed(1);
+      document.getElementById('result-fat').innerText = data.fat.toFixed(1);
+      document.getElementById('result-carbs').innerText = data.carbs.toFixed(1);
+
+      document.getElementById('res-sv-shushoku').innerText = `${data.sv.shushoku.toFixed(1)} SV`;
+      document.getElementById('res-sv-fukusai').innerText = `${data.sv.fukusai.toFixed(1)} SV`;
+      document.getElementById('res-sv-shusai').innerText = `${data.sv.shusai.toFixed(1)} SV`;
+      document.getElementById('res-sv-milk').innerText = `${data.sv.milk.toFixed(1)} SV`;
+      document.getElementById('res-sv-fruit').innerText = `${data.sv.fruit.toFixed(1)} SV`;
+
+      document.getElementById('food-advice').innerText = data.advice;
+
+      const tbody = document.getElementById('result-breakdown-rows');
+      tbody.innerHTML = '';
+      if (data.breakdown && Array.isArray(data.breakdown)) {
+        data.breakdown.forEach(item => {
+          const row = document.createElement('tr');
+          row.className = "border-b border-slate-100 hover:bg-slate-50";
+          row.innerHTML = `
+            <td class="px-3 py-2 font-medium text-slate-800">${item.name}</td>
+            <td class="px-3 py-2 text-right text-slate-500">${item.weight || '-'}</td>
+            <td class="px-3 py-2 text-right font-bold text-slate-700">${Math.round(item.calories)} kcal</td>
+            <td class="px-3 py-2 text-slate-500">${item.feature || '-'}</td>
+          `;
+          tbody.appendChild(row);
+        });
+      }
+
+      resultSection.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // 現在選択されている日付に記録を加算
+    async function addLatestToSelectedDay() {
+      if (!latestAnalysis) return;
+
+      if (!nutritionLogs[selectedDateStr]) {
+        nutritionLogs[selectedDateStr] = createEmptyLog();
+      }
+
+      const activeLog = nutritionLogs[selectedDateStr];
+      activeLog.calories += latestAnalysis.totalCalories;
+      activeLog.protein += latestAnalysis.protein;
+      activeLog.fat += latestAnalysis.fat;
+      activeLog.carbs += latestAnalysis.carbs;
+
+      activeLog.sv.shushoku += latestAnalysis.sv.shushoku;
+      activeLog.sv.fukusai += latestAnalysis.sv.fukusai;
+      activeLog.sv.shusai += latestAnalysis.sv.shusai;
+      activeLog.sv.milk += latestAnalysis.sv.milk;
+      activeLog.sv.fruit += latestAnalysis.sv.fruit;
+
+      await triggerDataSave();
+      renderCalendar();
+      updateSelectedDaySummary();
+
+      // 追加成功アニメーション
+      const addBtn = document.getElementById('add-to-today-btn');
+      const originalText = addBtn.innerHTML;
+      addBtn.innerHTML = `<i data-lucide="check" class="w-3.5 h-3.5"></i> <span>追加しました！</span>`;
+      addBtn.classList.replace('bg-emerald-600', 'bg-blue-600');
+      lucide.createIcons();
+
+      setTimeout(() => {
+        addBtn.innerHTML = originalText;
+        addBtn.classList.replace('bg-blue-600', 'bg-emerald-600');
+        lucide.createIcons();
+      }, 2000);
+    }
+
+    // --- STREAMING_CHUNK: Overwriting and Manual Editing System... ---
+    // 直接編集・上書き機能
+    function openEditModal() {
+      const activeLog = nutritionLogs[selectedDateStr] || createEmptyLog();
+
+      document.getElementById('modal-date-title').innerText = `${getJapaneseDateStr(selectedDateStr)} の食事記録を修正`;
+      
+      document.getElementById('edit-calories').value = Math.round(activeLog.calories);
+      document.getElementById('edit-protein').value = activeLog.protein.toFixed(1);
+      document.getElementById('edit-fat').value = activeLog.fat.toFixed(1);
+      document.getElementById('edit-carbs').value = activeLog.carbs.toFixed(1);
+
+      document.getElementById('edit-sv-shushoku').value = activeLog.sv.shushoku;
+      document.getElementById('edit-sv-fukusai').value = activeLog.sv.fukusai;
+      document.getElementById('edit-sv-shusai').value = activeLog.sv.shusai;
+      document.getElementById('edit-sv-milk').value = activeLog.sv.milk;
+      document.getElementById('edit-sv-fruit').value = activeLog.sv.fruit;
+
+      document.getElementById('edit-modal').classList.remove('hidden');
+    }
+
+    async function saveEditModal() {
+      if (!nutritionLogs[selectedDateStr]) {
+        nutritionLogs[selectedDateStr] = createEmptyLog();
+      }
+
+      const activeLog = nutritionLogs[selectedDateStr];
+
+      // モーダル入力値をオブジェクトに上書き適用
+      activeLog.calories = parseFloat(document.getElementById('edit-calories').value) || 0;
+      activeLog.protein = parseFloat(document.getElementById('edit-protein').value) || 0;
+      activeLog.fat = parseFloat(document.getElementById('edit-fat').value) || 0;
+      activeLog.carbs = parseFloat(document.getElementById('edit-carbs').value) || 0;
+
+      activeLog.sv.shushoku = parseFloat(document.getElementById('edit-sv-shushoku').value) || 0;
+      activeLog.sv.fukusai = parseFloat(document.getElementById('edit-sv-fukusai').value) || 0;
+      activeLog.sv.shusai = parseFloat(document.getElementById('edit-sv-shusai').value) || 0;
+      activeLog.sv.milk = parseFloat(document.getElementById('edit-sv-milk').value) || 0;
+      activeLog.sv.fruit = parseFloat(document.getElementById('edit-sv-fruit').value) || 0;
+
+      await triggerDataSave();
+      renderCalendar();
+      updateSelectedDaySummary();
+
+      document.getElementById('edit-modal').classList.add('hidden');
+    }
+
+    // 選択中の日付のクリア
+    async function resetSelectedDay() {
+      showCustomConfirm("選択中の日の食事バランスと記録をすべてリセット（クリア）しますか？", true, async () => {
+        delete nutritionLogs[selectedDateStr];
+        await triggerDataSave();
+        renderCalendar();
+        updateSelectedDaySummary();
+      });
+    }
+
+    // カスタム確認ダイアログ
+    let currentConfirmCallback = null;
+    function showCustomConfirm(message, isConfirm = true, onOk = null) {
+      document.getElementById('confirm-message').innerText = message;
+      const cancelBtn = document.getElementById('confirm-cancel-btn');
+      
+      if (isConfirm) {
+        cancelBtn.classList.remove('hidden');
+        document.getElementById('confirm-title').innerText = "操作の確認";
+      } else {
+        cancelBtn.classList.add('hidden');
+        document.getElementById('confirm-title').innerText = "お知らせ";
+      }
+
+      currentConfirmCallback = onOk;
+      document.getElementById('confirm-modal').classList.remove('hidden');
+    }
+
+    // --- STREAMING_CHUNK: Event Listeners and Initializers... ---
+    // 各種初期化
+    document.addEventListener('DOMContentLoaded', async () => {
+      lucide.createIcons();
+
+      // DB初期化
+      await initDatabase();
+
+      // ユーザー設定値変更時の自動同期
+      const profileInputs = ['age', 'gender', 'activity-level', 'current-weight', 'target-weight', 'weight-pace'];
+      profileInputs.forEach(id => {
+        document.getElementById(id).addEventListener('change', async () => {
+          calculateDailyCalories();
+          await triggerDataSave();
+        });
+      });
+
+      // アップロード操作
+      const imageInput = document.getElementById('image-input');
+      const imagePreview = document.getElementById('image-preview');
+      const uploadPrompt = document.getElementById('upload-prompt');
+      const uploadContainer = document.getElementById('upload-container');
+
+      imageInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            imagePreview.src = event.target.result;
+            imagePreview.classList.remove('hidden');
+            uploadPrompt.classList.add('hidden');
+            uploadContainer.classList.remove('py-8');
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+
+      // カレンダー変更操作
+      document.getElementById('prev-month-btn').addEventListener('click', () => {
+        currentYearMonth.setMonth(currentYearMonth.getMonth() - 1);
+        renderCalendar();
+      });
+      document.getElementById('next-month-btn').addEventListener('click', () => {
+        currentYearMonth.setMonth(currentYearMonth.getMonth() + 1);
+        renderCalendar();
+      });
+
+      // ボタンアクション
+      document.getElementById('analyze-btn').addEventListener('click', analyzeFood);
+      document.getElementById('add-to-today-btn').addEventListener('click', addLatestToSelectedDay);
+      document.getElementById('reset-selected-day-btn').addEventListener('click', resetSelectedDay);
+
+      // モーダル操作
+      document.getElementById('open-edit-modal-btn').addEventListener('click', openEditModal);
+      document.getElementById('close-modal-btn').addEventListener('click', () => document.getElementById('edit-modal').classList.add('hidden'));
+      document.getElementById('cancel-modal-btn').addEventListener('click', () => document.getElementById('edit-modal').classList.add('hidden'));
+      document.getElementById('save-modal-btn').addEventListener('click', saveEditModal);
+
+      // カスタム確認ダイアログ操作
+      document.getElementById('confirm-cancel-btn').addEventListener('click', () => {
+        document.getElementById('confirm-modal').classList.add('hidden');
+        currentConfirmCallback = null;
+      });
+      document.getElementById('confirm-ok-btn').addEventListener('click', () => {
+        document.getElementById('confirm-modal').classList.add('hidden');
+        if (currentConfirmCallback) currentConfirmCallback();
+        currentConfirmCallback = null;
+      });
+
+      // 今日をデフォルト選択
+      setSelectedDate(selectedDateStr);
+    });
+
+    // 解析用リトライヘルパー
+    async function fetchWithRetry(url, options, retries = 5, delay = 1000) {
+      for (let i = 0; i < retries; i++) {
+        try {
+          const response = await fetch(url, options);
+          if (response.ok) return await response.json();
+        } catch (e) {
+          if (i === retries - 1) throw e;
+        }
+        await new Promise(res => setTimeout(res, delay));
+        delay *= 2;
+      }
+      throw new Error("通信に失敗しました。ネットワークを確認してください。");
+    }
+  </script>
+</body>
+</html>
